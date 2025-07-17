@@ -1,28 +1,37 @@
 import express, { Request, Response } from "express";
-import { playlists, songs } from "../data/mockData";
+import prisma from "../prisma";
 
 const router = express.Router();
 
-router.get("/", (req: Request, res: Response) => {
+router.get("/", async (_req: Request, res: Response) => {
+  const playlists = await prisma.playlist.findMany({
+    include: { songs: true },
+  });
   res.json(playlists);
 });
 
-router.post("/:playlistId/songs", (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
+  const { name } = req.body;
+  const playlist = await prisma.playlist.create({
+    data: { name },
+  });
+  res.status(201).json(playlist);
+});
+
+router.post("/:playlistId/songs", async (req: Request, res: Response) => {
   const playlistId = parseInt(req.params.playlistId);
-  const playlist = playlists.find(p => p.id === playlistId);
-
-  if (!playlist) {
-    return res.status(404).json({ error: "Playlist not found" });
-  }
-
   const { songId } = req.body;
-  const songExists = songs.find(s => s.id === songId);
 
-  if (!songExists) {
-    return res.status(400).json({ error: "Song does not exist" });
-  }
+  const playlist = await prisma.playlist.update({
+    where: { id: playlistId },
+    data: {
+      songs: {
+        connect: { id: songId },
+      },
+    },
+    include: { songs: true },
+  });
 
-  playlist.songs.push(songId);
   res.status(200).json(playlist);
 });
 
